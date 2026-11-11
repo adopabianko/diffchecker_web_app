@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DiffChecker - Code & Text Merge Tool</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', 'Courier New', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.7);
+    }
+    /* Fixed line height for synchronized text alignment */
+    .line-height-strict {
+      line-height: 1.5rem !important;
+    }
+    /* Active Jump Highlight Animation */
+    .diff-highlight-target {
+      animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 min-h-screen flex flex-col transition-colors duration-200 selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP HEADER / NAVBAR -->
+  <header class="border-b border-slate-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur sticky top-0 z-40 px-4 py-2.5 shadow-sm">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            DiffChecker
+            <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">Pro</span>
+          </h1>
+          <p class="text-xs text-slate-500 dark:text-zinc-400 hidden sm:block">Text & Code Difference & Merge Tool</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs & Input/Diff View -->
+      <div class="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700/60">
+        <button id="tabEditorBtn" onclick="setActiveTab('editor')" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          Editor Input
+        </button>
+        <button id="tabDiffBtn" onclick="setActiveTab('diff')" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Diff Output
+        </button>
+      </div>
+
+      <!-- Quick Actions & Theme -->
+      <div class="flex items-center space-x-2">
+        <button onclick="loadSampleData()" class="px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-slate-200 dark:border-zinc-700 flex items-center gap-1" title="Load sample code">
+          <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <span class="hidden md:inline">Load</span> Sample
+        </button>
+        <button onclick="swapTexts()" class="px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-slate-200 dark:border-zinc-700 flex items-center gap-1" title="Swap Left and Right texts">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          Swap
+        </button>
+        <button onclick="clearAll()" class="px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors border border-red-200 dark:border-red-900/50 flex items-center gap-1" title="Clear both text inputs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          Clear
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="p-2 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="Toggle Light/Dark Theme">
+          <svg id="sunIcon" class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <svg id="moonIcon" class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- CONTROLS & OPTIONS TOOLBAR -->
+  <section class="bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 px-4 py-2.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Diff View Options -->
+      <div class="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-700 dark:text-zinc-300">
+        <!-- View Mode Switcher -->
+        <div class="flex items-center space-x-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
+          <button id="viewSplitBtn" onclick="setViewMode('split')" class="px-2.5 py-1 rounded font-medium transition-all text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 shadow-sm flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m6 10V7"/></svg>
+            Side-by-Side
+          </button>
+          <button id="viewUnifiedBtn" onclick="setViewMode('unified')" class="px-2.5 py-1 rounded font-medium transition-all text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            Unified View
+          </button>
+        </div>
+
+        <!-- Checkboxes -->
+        <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+          <input type="checkbox" id="ignoreWhitespace" onchange="triggerDiffUpdate()" class="rounded border-slate-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 dark:bg-zinc-800">
+          <span>Ignore Whitespace</span>
+        </label>
+
+        <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+          <input type="checkbox" id="ignoreCase" onchange="triggerDiffUpdate()" class="rounded border-slate-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 dark:bg-zinc-800">
+          <span>Ignore Case</span>
+        </label>
+
+        <!-- Granularity Selector -->
+        <div class="flex items-center space-x-1.5">
+          <span class="text-slate-500 dark:text-zinc-400">Highlighting:</span>
+          <select id="granularitySelect" onchange="triggerDiffUpdate()" class="bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-md px-2 py-1 text-xs focus:ring-indigo-500 text-slate-800 dark:text-zinc-200">
+            <option value="word">Word Level</option>
+            <option value="char">Character Level</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Bulk Merging & Find Differences Button -->
+      <div class="flex items-center space-x-2">
+        <!-- Bulk Merging Buttons -->
+        <div class="flex items-center space-x-1 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs">
+          <button onclick="mergeAllLeftToRight()" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors flex items-center gap-1" title="Merge All Left blocks to Right">
+            All &rarr;
+          </button>
+          <button onclick="mergeAllRightToLeft()" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium transition-colors flex items-center gap-1" title="Merge All Right blocks to Left">
+            &larr; All
+          </button>
+          <button id="undoMergeBtn" onclick="undoMerge()" disabled class="px-2 py-1 bg-slate-200 dark:bg-zinc-700 text-slate-400 dark:text-zinc-500 rounded text-[11px] font-medium transition-colors disabled:cursor-not-allowed flex items-center gap-1" title="Undo last merge operation (Ctrl+Z)">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+            Undo <span id="undoCountText">(0)</span>
+          </button>
+        </div>
+
+        <button onclick="runComparisonAndSwitchTab()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg font-medium text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          Find Difference
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-4">
+
+    <!-- METRICS & NAVIGATION BAR -->
+    <div id="statsBar" class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3 text-xs font-semibold">
+        <div class="flex items-center space-x-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-900/50">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span id="statAdditions">+0 additions</span>
+        </div>
+        <div class="flex items-center space-x-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-md border border-rose-200 dark:border-rose-900/50">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+          <span id="statDeletions">-0 deletions</span>
+        </div>
+        <div class="flex items-center space-x-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-900/50">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <span id="statUnresolved">0 diff blocks</span>
+        </div>
+        <div class="text-slate-500 dark:text-zinc-400 px-1 py-1">
+          <span id="statUnchanged">0 unchanged lines</span>
+        </div>
+      </div>
+
+      <!-- Similarity Meter -->
+      <div class="flex items-center space-x-3 w-full sm:w-auto flex-1 max-w-xs">
+        <span class="text-xs font-medium text-slate-500 dark:text-zinc-400 whitespace-nowrap">Similarity:</span>
+        <div class="w-full bg-slate-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+          <div id="similarityBar" class="bg-indigo-600 h-full transition-all duration-500" style="width: 100%"></div>
+        </div>
+        <span id="statSimilarity" class="text-xs font-bold text-slate-800 dark:text-zinc-200 min-w-[3rem] text-right">100%</span>
+      </div>
+
+      <!-- Diff Jumper & Export Tools -->
+      <div class="flex items-center space-x-2">
+        <div class="flex items-center bg-slate-100 dark:bg-zinc-800 rounded-lg p-0.5 border border-slate-200 dark:border-zinc-700 text-xs">
+          <button onclick="jumpDiff(-1)" class="p-1 hover:bg-white dark:hover:bg-zinc-700 rounded text-slate-600 dark:text-zinc-300" title="Previous Difference (Shift+F7)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+          </button>
+          <span id="diffJumpCounter" class="px-2 text-[11px] font-mono text-slate-500 dark:text-zinc-400">0 / 0</span>
+          <button onclick="jumpDiff(1)" class="p-1 hover:bg-white dark:hover:bg-zinc-700 rounded text-slate-600 dark:text-zinc-300" title="Next Difference (F7)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+        </div>
+
+        <button onclick="downloadFile('left')" class="px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg transition-colors flex items-center gap-1" title="Download Left File">
+          <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span class="hidden md:inline">Save Left</span>
+        </button>
+
+        <button onclick="downloadFile('right')" class="px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg transition-colors flex items-center gap-1" title="Download Right File">
+          <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span class="hidden md:inline">Save Right</span>
+        </button>
+
+        <button onclick="copyDiffPatch()" class="px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg transition-colors flex items-center gap-1" title="Copy Standard Git Patch">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+          <span class="hidden sm:inline">Patch</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- VIEW 1: EDITOR INPUT PANE -->
+    <div id="editorView" class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[500px]">
+      
+      <!-- LEFT EDITOR: ORIGINAL -->
+      <div class="flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden group">
+        <div class="bg-slate-50 dark:bg-zinc-900/90 border-b border-slate-200 dark:border-zinc-800 px-3 py-2 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            <span class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Original Text (Left)</span>
+            <span id="leftMeta" class="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">(0 lines, 0 chars)</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="cursor-pointer px-2 py-0.5 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors">
+              <input type="file" onchange="handleFileUpload(event, 'leftText')" class="hidden" />
+              Upload
+            </label>
+            <button onclick="clearPane('left')" class="text-xs text-slate-400 hover:text-red-500 transition-colors">Clear</button>
+          </div>
+        </div>
+
+        <div id="dropzoneLeft" class="relative flex-1 flex font-mono text-sm bg-slate-50/50 dark:bg-zinc-950/50">
+          <div id="leftLineNums" class="select-none py-3 px-2 text-right bg-slate-100/70 dark:bg-zinc-900/60 text-slate-400 dark:text-zinc-600 border-r border-slate-200 dark:border-zinc-800 font-mono text-xs min-w-[2.5rem] line-height-strict">1</div>
+          <textarea id="leftText" oninput="onInputEditor()" onscroll="syncEditorScroll('left')" placeholder="Paste original text or drag & drop file here..." class="flex-1 w-full p-3 bg-transparent resize-none outline-none border-none text-slate-800 dark:text-zinc-200 line-height-strict font-mono text-sm" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <!-- RIGHT EDITOR: CHANGED -->
+      <div class="flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden group">
+        <div class="bg-slate-50 dark:bg-zinc-900/90 border-b border-slate-200 dark:border-zinc-800 px-3 py-2 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Changed Text (Right)</span>
+            <span id="rightMeta" class="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">(0 lines, 0 chars)</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="cursor-pointer px-2 py-0.5 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors">
+              <input type="file" onchange="handleFileUpload(event, 'rightText')" class="hidden" />
+              Upload
+            </label>
+            <button onclick="clearPane('right')" class="text-xs text-slate-400 hover:text-red-500 transition-colors">Clear</button>
+          </div>
+        </div>
+
+        <div id="dropzoneRight" class="relative flex-1 flex font-mono text-sm bg-slate-50/50 dark:bg-zinc-950/50">
+          <div id="rightLineNums" class="select-none py-3 px-2 text-right bg-slate-100/70 dark:bg-zinc-900/60 text-slate-400 dark:text-zinc-600 border-r border-slate-200 dark:border-zinc-800 font-mono text-xs min-w-[2.5rem] line-height-strict">1</div>
+          <textarea id="rightText" oninput="onInputEditor()" onscroll="syncEditorScroll('right')" placeholder="Paste modified text or drag & drop file here..." class="flex-1 w-full p-3 bg-transparent resize-none outline-none border-none text-slate-800 dark:text-zinc-200 line-height-strict font-mono text-sm" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- VIEW 2: VISUAL DIFF OUTPUT PANE -->
+    <div id="diffView" class="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden hidden flex-col min-h-[500px]">
+      
+      <!-- SIDE-BY-SIDE DIFF CONTAINER WITH MIDDLE MERGE GUTTER -->
+      <div id="splitDiffContainer" class="flex-1 grid grid-cols-[1fr_60px_1fr] divide-x divide-slate-200 dark:divide-zinc-800 overflow-hidden">
+        
+        <!-- Left Diff Window -->
+        <div class="flex flex-col h-full overflow-hidden">
+          <div class="bg-slate-100 dark:bg-zinc-950/80 px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-zinc-400 border-b border-slate-200 dark:border-zinc-800 flex justify-between">
+            <span>Original File (Left)</span>
+            <span class="text-[10px] font-normal text-slate-400">Deletions highlighted</span>
+          </div>
+          <div id="diffLeftScroll" onscroll="syncDiffScroll('left')" class="flex-1 overflow-auto font-mono text-xs select-text">
+            <div id="diffLeftContent" class="w-full"></div>
+          </div>
+        </div>
+
+        <!-- Center Merge Control Gutter -->
+        <div class="flex flex-col h-full overflow-hidden bg-slate-50/70 dark:bg-zinc-950/70 border-x border-slate-200 dark:border-zinc-800 select-none">
+          <div class="bg-slate-100 dark:bg-zinc-950/80 px-1 py-1.5 text-[11px] font-semibold text-center text-slate-500 dark:text-zinc-400 border-b border-slate-200 dark:border-zinc-800">
+            Merge
+          </div>
+          <div id="diffCenterScroll" onscroll="syncDiffScroll('center')" class="flex-1 overflow-hidden font-mono text-xs">
+            <div id="diffCenterContent" class="w-full flex flex-col items-center"></div>
+          </div>
+        </div>
+
+        <!-- Right Diff Window -->
+        <div class="flex flex-col h-full overflow-hidden">
+          <div class="bg-slate-100 dark:bg-zinc-950/80 px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-zinc-400 border-b border-slate-200 dark:border-zinc-800 flex justify-between">
+            <span>Changed File (Right)</span>
+            <span class="text-[10px] font-normal text-slate-400">Additions highlighted</span>
+          </div>
+          <div id="diffRightScroll" onscroll="syncDiffScroll('right')" class="flex-1 overflow-auto font-mono text-xs select-text">
+            <div id="diffRightContent" class="w-full"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- UNIFIED DIFF CONTAINER -->
+      <div id="unifiedDiffContainer" class="flex-1 overflow-auto font-mono text-xs hidden select-text">
+        <div id="diffUnifiedContent" class="w-full"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 text-xs font-medium px-4 py-2.5 rounded-lg shadow-xl border border-slate-700 dark:border-zinc-300 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-2">
+    <svg class="w-4 h-4 text-indigo-400 dark:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span id="toastMsg">Notification message</span>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    // --- STATE ENGINE ---
+    const state = {
+      theme: 'dark',
+      activeTab: 'editor',
+      viewMode: 'split',
+      ignoreWhitespace: false,
+      ignoreCase: false,
+      granularity: 'word',
+      undoStack: [],
+      hunks: [],
+      diffBlocks: [],
+      currentDiffIdx: -1,
+      lastComputedDiff: null
+    };
+
+    // --- INITIALIZATION ---
+    window.addEventListener('DOMContentLoaded', () => {
+      setupDropzone('dropzoneLeft', 'leftText');
+      setupDropzone('dropzoneRight', 'rightText');
+      loadSampleData(false);
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'F7') {
+          e.preventDefault();
+          jumpDiff(e.shiftKey ? -1 : 1);
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && state.activeTab === 'diff') {
+          if (state.undoStack.length > 0) {
+            e.preventDefault();
+            undoMerge();
+          }
+        }
+      });
+    });
+
+    // --- THEME ENGINE ---
+    function toggleTheme() {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      if (state.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+
+    // --- TAB NAVIGATION ---
+    function setActiveTab(tab) {
+      state.activeTab = tab;
+      const editorView = document.getElementById('editorView');
+      const diffView = document.getElementById('diffView');
+      const tabEditorBtn = document.getElementById('tabEditorBtn');
+      const tabDiffBtn = document.getElementById('tabDiffBtn');
+
+      if (tab === 'editor') {
+        editorView.classList.remove('hidden');
+        editorView.classList.add('grid');
+        diffView.classList.add('hidden');
+        diffView.classList.remove('flex');
+
+        tabEditorBtn.className = "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 shadow-sm";
+        tabDiffBtn.className = "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white";
+      } else {
+        runDiffComparison();
+        editorView.classList.add('hidden');
+        editorView.classList.remove('grid');
+        diffView.classList.remove('hidden');
+        diffView.classList.add('flex');
+
+        tabDiffBtn.className = "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 shadow-sm";
+        tabEditorBtn.className = "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white";
+      }
+    }
+
+    function runComparisonAndSwitchTab() {
+      setActiveTab('diff');
+      showToast("Differences recalculated");
+    }
+
+    // --- VIEW MODE TOGGLE ---
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      const splitBtn = document.getElementById('viewSplitBtn');
+      const unifiedBtn = document.getElementById('viewUnifiedBtn');
+      const splitContainer = document.getElementById('splitDiffContainer');
+      const unifiedContainer = document.getElementById('unifiedDiffContainer');
+
+      if (mode === 'split') {
+        splitContainer.classList.remove('hidden');
+        splitContainer.classList.add('grid');
+        unifiedContainer.classList.add('hidden');
+
+        splitBtn.className = "px-2.5 py-1 rounded font-medium transition-all text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 shadow-sm flex items-center gap-1";
+        unifiedBtn.className = "px-2.5 py-1 rounded font-medium transition-all text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1";
+      } else {
+        splitContainer.classList.add('hidden');
+        splitContainer.classList.remove('grid');
+        unifiedContainer.classList.remove('hidden');
+
+        unifiedBtn.className = "px-2.5 py-1 rounded font-medium transition-all text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 shadow-sm flex items-center gap-1";
+        splitBtn.className = "px-2.5 py-1 rounded font-medium transition-all text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1";
+      }
+
+      if (state.lastComputedDiff) {
+        renderDiffOutput(state.lastComputedDiff);
+      }
+    }
+
+    // --- LINE COUNTING & GUTTERS ---
+    function onInputEditor() {
+      updateLineNumbers('leftText', 'leftLineNums', 'leftMeta');
+      updateLineNumbers('rightText', 'rightLineNums', 'rightMeta');
+    }
+
+    function updateLineNumbers(textareaId, lineNumId, metaId) {
+      const text = document.getElementById(textareaId).value;
+      const lines = text.split('\n');
+      const count = lines.length;
+      
+      let numHtml = '';
+      for (let i = 1; i <= count; i++) {
+        numHtml += `<div>${i}</div>`;
+      }
+      document.getElementById(lineNumId).innerHTML = numHtml;
+      document.getElementById(metaId).innerText = `(${count} lines, ${text.length} chars)`;
+    }
+
+    function syncEditorScroll(side) {
+      const source = side === 'left' ? document.getElementById('leftText') : document.getElementById('rightText');
+      const targetGutter = side === 'left' ? document.getElementById('leftLineNums') : document.getElementById('rightLineNums');
+      targetGutter.scrollTop = source.scrollTop;
+    }
+
+    // --- FILE UPLOADS & DRAG AND DROP ---
+    function setupDropzone(zoneId, targetTextareaId) {
+      const zone = document.getElementById(zoneId);
+      const textarea = document.getElementById(targetTextareaId);
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        zone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          zone.classList.add('bg-indigo-50/50', 'dark:bg-indigo-950/20');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        zone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          zone.classList.remove('bg-indigo-50/50', 'dark:bg-indigo-950/20');
+        }, false);
+      });
+
+      zone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+          const file = files[0];
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            textarea.value = evt.target.result;
+            onInputEditor();
+            showToast(`Loaded file: ${file.name}`);
+          };
+          reader.readAsText(file);
+        }
+      });
+    }
+
+    function handleFileUpload(event, textareaId) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById(textareaId).value = e.target.result;
+        onInputEditor();
+        showToast(`Loaded file: ${file.name}`);
+      };
+      reader.readAsText(file);
+    }
+
+    function clearPane(side) {
+      if (side === 'left') {
+        document.getElementById('leftText').value = '';
+      } else {
+        document.getElementById('rightText').value = '';
+      }
+      onInputEditor();
+    }
+
+    function clearAll() {
+      document.getElementById('leftText').value = '';
+      document.getElementById('rightText').value = '';
+      onInputEditor();
+      showToast("Cleared both editor panes");
+    }
+
+    function swapTexts() {
+      const left = document.getElementById('leftText');
+      const right = document.getElementById('rightText');
+      const temp = left.value;
+      left.value = right.value;
+      right.value = temp;
+      onInputEditor();
+      if (state.activeTab === 'diff') runDiffComparison();
+      showToast("Swapped Original and Changed text");
+    }
+
+    function loadSampleData(toastNotify = true) {
+      const sampleOriginal = `function calculateTotal(items, discountRate = 0) {
+  // Original calculation logic
+  let total = 0;
+  for (let i = 0; i < items.length; i++) {
+    total += items[i].price * items[i].quantity;
+  }
+
+  if (discountRate > 0) {
+    total -= total * discountRate;
+  }
+
+  return total;
+}
+
+const config = {
+  env: "development",
+  maxRetries: 3,
+  timeout: 5000,
+  debug: true
+};`;
+
+      const sampleChanged = `function calculateTotal(items, discountRate = 0, taxRate = 0.08) {
+  // Updated calculation with tax and reduce
+  let total = items.reduce((acc, item) => {
+    return acc + (item.price * item.quantity);
+  }, 0);
+
+  if (discountRate > 0) {
+    total -= total * discountRate;
+  }
+
+  // Apply sales tax
+  if (taxRate > 0) {
+    total += total * taxRate;
+  }
+
+  return Math.round(total * 100) / 100;
+}
+
+const config = {
+  env: "production",
+  maxRetries: 5,
+  timeout: 10000,
+  debug: false
+};`;
+
+      document.getElementById('leftText').value = sampleOriginal;
+      document.getElementById('rightText').value = sampleChanged;
+      onInputEditor();
+      if (toastNotify) showToast("Loaded sample code with merge blocks");
+    }
+
+    // --- UNDO STACK MANAGER ---
+    function pushUndoState() {
+      state.undoStack.push({
+        leftText: document.getElementById('leftText').value,
+        rightText: document.getElementById('rightText').value
+      });
+      if (state.undoStack.length > 30) state.undoStack.shift();
+      updateUndoButton();
+    }
+
+    function undoMerge() {
+      if (state.undoStack.length === 0) return;
+      const prev = state.undoStack.pop();
+      document.getElementById('leftText').value = prev.leftText;
+      document.getElementById('rightText').value = prev.rightText;
+      onInputEditor();
+      runDiffComparison();
+      updateUndoButton();
+      showToast("Undid last merge action");
+    }
+
+    function updateUndoButton() {
+      const btn = document.getElementById('undoMergeBtn');
+      const count = document.getElementById('undoCountText');
+      count.innerText = `(${state.undoStack.length})`;
+      if (state.undoStack.length > 0) {
+        btn.disabled = false;
+        btn.className = "px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer";
+      } else {
+        btn.disabled = true;
+        btn.className = "px-2 py-1 bg-slate-200 dark:bg-zinc-700 text-slate-400 dark:text-zinc-500 rounded text-[11px] font-medium transition-colors disabled:cursor-not-allowed flex items-center gap-1";
+      }
+    }
+
+    // --- CODE MERGE ACTIONS ---
+    function mergeHunkToRight(hunkIdx) {
+      const hunk = state.hunks[hunkIdx];
+      if (!hunk) return;
+
+      pushUndoState();
+      const linesB = document.getElementById('rightText').value.split('\n');
+
+      const start = hunk.rightStart;
+      const count = hunk.rightCount;
+      const replacement = hunk.leftLines;
+
+      linesB.splice(start, count, ...replacement);
+
+      document.getElementById('rightText').value = linesB.join('\n');
+      onInputEditor();
+      runDiffComparison();
+      showToast(`Merged block #${hunkIdx + 1} Left \u2192 Right`);
+    }
+
+    function mergeHunkToLeft(hunkIdx) {
+      const hunk = state.hunks[hunkIdx];
+      if (!hunk) return;
+
+      pushUndoState();
+      const linesA = document.getElementById('leftText').value.split('\n');
+
+      const start = hunk.leftStart;
+      const count = hunk.leftCount;
+      const replacement = hunk.rightLines;
+
+      linesA.splice(start, count, ...replacement);
+
+      document.getElementById('leftText').value = linesA.join('\n');
+      onInputEditor();
+      runDiffComparison();
+      showToast(`Merged block #${hunkIdx + 1} Right \u2192 Left`);
+    }
+
+    function mergeAllLeftToRight() {
+      if (state.hunks.length === 0) {
+        showToast("No diff blocks to merge!");
+        return;
+      }
+      pushUndoState();
+      document.getElementById('rightText').value = document.getElementById('leftText').value;
+      onInputEditor();
+      runDiffComparison();
+      showToast("Merged ALL Left blocks to Right");
+    }
+
+    function mergeAllRightToLeft() {
+      if (state.hunks.length === 0) {
+        showToast("No diff blocks to merge!");
+        return;
+      }
+      pushUndoState();
+      document.getElementById('leftText').value = document.getElementById('rightText').value;
+      onInputEditor();
+      runDiffComparison();
+      showToast("Merged ALL Right blocks to Left");
+    }
+
+    // --- MERGE TARGET HOVER PREVIEW ---
+    function highlightHunkPreview(blockClass, active) {
+      const elements = document.getElementsByClassName(blockClass);
+      Array.from(elements).forEach(el => {
+        if (active) {
+          el.classList.add('ring-2', 'ring-indigo-500', 'z-10');
+        } else {
+          el.classList.remove('ring-2', 'ring-indigo-500', 'z-10');
+        }
+      });
+    }
+
+    // --- LCS LINE & SUB-STRING COMPARISON ENGINE ---
+    function computeLineLCS(linesA, linesB, compareFn) {
+      const m = linesA.length;
+      const n = linesB.length;
+      
+      const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (compareFn(linesA[i - 1], linesB[j - 1])) {
+            dp[i][j] = dp[i - 1][j - 1] + 1;
+          } else {
+            dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+          }
+        }
+      }
+
+      let i = m, j = n;
+      const result = [];
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && compareFn(linesA[i - 1], linesB[j - 1])) {
+          result.push({ type: 'equal', oldIdx: i - 1, newIdx: j - 1, valOld: linesA[i - 1], valNew: linesB[j - 1] });
+          i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+          result.push({ type: 'add', newIdx: j - 1, valNew: linesB[j - 1] });
+          j--;
+        } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+          result.push({ type: 'delete', oldIdx: i - 1, valOld: linesA[i - 1] });
+          i--;
+        }
+      }
+      return result.reverse();
+    }
+
+    function alignDiffPairs(rawDiff) {
+      const pairs = [];
+      let i = 0;
+
+      while (i < rawDiff.length) {
+        if (rawDiff[i].type === 'equal') {
+          pairs.push({
+            type: 'equal',
+            leftNum: rawDiff[i].oldIdx + 1,
+            rightNum: rawDiff[i].newIdx + 1,
+            leftText: rawDiff[i].valOld,
+            rightText: rawDiff[i].valNew
+          });
+          i++;
+        } else {
+          const deletes = [];
+          const adds = [];
+
+          while (i < rawDiff.length && rawDiff[i].type !== 'equal') {
+            if (rawDiff[i].type === 'delete') deletes.push(rawDiff[i]);
+            if (rawDiff[i].type === 'add') adds.push(rawDiff[i]);
+            i++;
+          }
+
+          const maxLen = Math.max(deletes.length, adds.length);
+          for (let k = 0; k < maxLen; k++) {
+            const delItem = deletes[k];
+            const addItem = adds[k];
+
+            if (delItem && addItem) {
+              pairs.push({
+                type: 'modify',
+                leftNum: delItem.oldIdx + 1,
+                rightNum: addItem.newIdx + 1,
+                leftText: delItem.valOld,
+                rightText: addItem.valNew
+              });
+            } else if (delItem) {
+              pairs.push({
+                type: 'delete',
+                leftNum: delItem.oldIdx + 1,
+                rightNum: null,
+                leftText: delItem.valOld,
+                rightText: null
+              });
+            } else if (addItem) {
+              pairs.push({
+                type: 'add',
+                leftNum: null,
+                rightNum: addItem.newIdx + 1,
+                leftText: null,
+                rightText: addItem.valNew
+              });
+            }
+          }
+        }
+      }
+      return pairs;
+    }
+
+    function extractHunksFromPairs(pairs) {
+      const hunks = [];
+      let currentHunk = null;
+      let lastLeftLine = 0;
+      let lastRightLine = 0;
+
+      pairs.forEach((pair) => {
+        if (pair.leftNum !== null) lastLeftLine = pair.leftNum;
+        if (pair.rightNum !== null) lastRightLine = pair.rightNum;
+
+        if (pair.type !== 'equal') {
+          if (!currentHunk) {
+            currentHunk = {
+              leftStart: pair.leftNum !== null ? pair.leftNum - 1 : lastLeftLine,
+              leftLines: [],
+              rightStart: pair.rightNum !== null ? pair.rightNum - 1 : lastRightLine,
+              rightLines: []
+            };
+          }
+
+          if (pair.leftText !== null) {
+            currentHunk.leftLines.push(pair.leftText);
+          }
+          if (pair.rightText !== null) {
+            currentHunk.rightLines.push(pair.rightText);
+          }
+        } else {
+          if (currentHunk) {
+            currentHunk.leftCount = currentHunk.leftLines.length;
+            currentHunk.rightCount = currentHunk.rightLines.length;
+            hunks.push(currentHunk);
+            currentHunk = null;
+          }
+        }
+      });
+
+      if (currentHunk) {
+        currentHunk.leftCount = currentHunk.leftLines.length;
+        currentHunk.rightCount = currentHunk.rightLines.length;
+        hunks.push(currentHunk);
+      }
+
+      return hunks;
+    }
+
+    function tokenizeString(str, granularity) {
+      if (!str) return [];
+      if (granularity === 'char') {
+        return str.split('');
+      } else {
+        return str.match(/[\w]+|[^\w\s]+|\s+/g) || [];
+      }
+    }
+
+    function renderSubDiff(strA, strB, side) {
+      if (strA === null || strB === null) {
+        return escapeHtml(side === 'left' ? (strA || '') : (strB || ''));
+      }
+
+      const tokensA = tokenizeString(strA, state.granularity);
+      const tokensB = tokenizeString(strB, state.granularity);
+
+      const tokenDiff = computeLineLCS(tokensA, tokensB, (t1, t2) => {
+        if (state.ignoreCase) return t1.toLowerCase() === t2.toLowerCase();
+        return t1 === t2;
+      });
+
+      let html = '';
+      for (const item of tokenDiff) {
+        if (item.type === 'equal') {
+          html += escapeHtml(side === 'left' ? item.valOld : item.valNew);
+        } else if (item.type === 'delete' && side === 'left') {
+          html += `<mark class="bg-red-300/80 dark:bg-red-900/80 text-red-950 dark:text-red-100 font-semibold rounded-sm px-0.5">${escapeHtml(item.valOld)}</mark>`;
+        } else if (item.type === 'add' && side === 'right') {
+          html += `<mark class="bg-emerald-300/80 dark:bg-emerald-900/80 text-emerald-950 dark:text-emerald-100 font-semibold rounded-sm px-0.5">${escapeHtml(item.valNew)}</mark>`;
+        }
+      }
+      return html;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // --- DIFF RUNNER & RENDERING ---
+    function triggerDiffUpdate() {
+      if (state.activeTab === 'diff') {
+        runDiffComparison();
+      }
+    }
+
+    function runDiffComparison() {
+      const leftRaw = document.getElementById('leftText').value;
+      const rightRaw = document.getElementById('rightText').value;
+
+      state.ignoreWhitespace = document.getElementById('ignoreWhitespace').checked;
+      state.ignoreCase = document.getElementById('ignoreCase').checked;
+      state.granularity = document.getElementById('granularitySelect').value;
+
+      const linesA = leftRaw.split('\n');
+      const linesB = rightRaw.split('\n');
+
+      const compareFn = (line1, line2) => {
+        let l1 = line1;
+        let l2 = line2;
+        if (state.ignoreWhitespace) {
+          l1 = l1.trim().replace(/\s+/g, ' ');
+          l2 = l2.trim().replace(/\s+/g, ' ');
+        }
+        if (state.ignoreCase) {
+          l1 = l1.toLowerCase();
+          l2 = l2.toLowerCase();
+        }
+        return l1 === l2;
+      };
+
+      const rawDiff = computeLineLCS(linesA, linesB, compareFn);
+      const alignedPairs = alignDiffPairs(rawDiff);
+      state.lastComputedDiff = alignedPairs;
+
+      renderDiffOutput(alignedPairs);
+      calculateStats(rawDiff, linesA.length, linesB.length);
+    }
+
+    function renderDiffOutput(pairs) {
+      state.diffBlocks = [];
+      state.hunks = extractHunksFromPairs(pairs);
+
+      let diffBlockCounter = 0;
+
+      if (state.viewMode === 'split') {
+        let leftHtml = '';
+        let rightHtml = '';
+        let centerHtml = '';
+
+        pairs.forEach((pair, idx) => {
+          const isDiff = pair.type !== 'equal';
+          let blockIdClass = '';
+          let isHunkStart = false;
+
+          if (isDiff && (idx === 0 || pairs[idx - 1].type === 'equal')) {
+            diffBlockCounter++;
+            blockIdClass = `diff-block-${diffBlockCounter}`;
+            state.diffBlocks.push(blockIdClass);
+            isHunkStart = true;
+          } else if (isDiff) {
+            blockIdClass = `diff-block-${diffBlockCounter}`;
+          }
+
+          // Left Panel Line
+          if (pair.type === 'equal') {
+            leftHtml += `<div class="flex items-center hover:bg-slate-100 dark:hover:bg-zinc-800/50 py-0.5 px-1 min-h-[1.5rem]">
+              <span class="w-10 text-right pr-3 select-none text-slate-400 dark:text-zinc-600 border-r border-slate-200 dark:border-zinc-800 shrink-0">${pair.leftNum}</span>
+              <pre class="pl-3 whitespace-pre-wrap break-all text-slate-800 dark:text-zinc-300 font-mono">${escapeHtml(pair.leftText)}</pre>
+            </div>`;
+          } else if (pair.type === 'delete' || pair.type === 'modify') {
+            const bgClass = 'bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-200';
+            const numBg = 'bg-red-100/70 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50';
+            leftHtml += `<div class="flex items-center ${bgClass} py-0.5 px-1 min-h-[1.5rem] ${blockIdClass}">
+              <span class="w-10 text-right pr-3 select-none ${numBg} border-r shrink-0">${pair.leftNum}</span>
+              <span class="px-1.5 text-red-500 font-bold select-none">-</span>
+              <pre class="pl-1 whitespace-pre-wrap break-all font-mono">${renderSubDiff(pair.leftText, pair.rightText, 'left')}</pre>
+            </div>`;
+          } else {
+            leftHtml += `<div class="flex items-center bg-slate-50/50 dark:bg-zinc-950/50 py-0.5 px-1 min-h-[1.5rem] opacity-40">
+              <span class="w-10 text-right pr-3 select-none text-transparent border-r border-slate-200 dark:border-zinc-800 shrink-0">.</span>
+              <pre class="pl-3 whitespace-pre-wrap"></pre>
+            </div>`;
+          }
+
+          // Right Panel Line
+          if (pair.type === 'equal') {
+            rightHtml += `<div class="flex items-center hover:bg-slate-100 dark:hover:bg-zinc-800/50 py-0.5 px-1 min-h-[1.5rem]">
+              <span class="w-10 text-right pr-3 select-none text-slate-400 dark:text-zinc-600 border-r border-slate-200 dark:border-zinc-800 shrink-0">${pair.rightNum}</span>
+              <pre class="pl-3 whitespace-pre-wrap break-all text-slate-800 dark:text-zinc-300 font-mono">${escapeHtml(pair.rightText)}</pre>
+            </div>`;
+          } else if (pair.type === 'add' || pair.type === 'modify') {
+            const bgClass = 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200';
+            const numBg = 'bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50';
+            rightHtml += `<div class="flex items-center ${bgClass} py-0.5 px-1 min-h-[1.5rem] ${blockIdClass}">
+              <span class="w-10 text-right pr-3 select-none ${numBg} border-r shrink-0">${pair.rightNum}</span>
+              <span class="px-1.5 text-emerald-500 font-bold select-none">+</span>
+              <pre class="pl-1 whitespace-pre-wrap break-all font-mono">${renderSubDiff(pair.leftText, pair.rightText, 'right')}</pre>
+            </div>`;
+          } else {
+            rightHtml += `<div class="flex items-center bg-slate-50/50 dark:bg-zinc-950/50 py-0.5 px-1 min-h-[1.5rem] opacity-40">
+              <span class="w-10 text-right pr-3 select-none text-transparent border-r border-slate-200 dark:border-zinc-800 shrink-0">.</span>
+              <pre class="pl-3 whitespace-pre-wrap"></pre>
+            </div>`;
+          }
+
+          // Center Merge Gutter Actions
+          if (isHunkStart) {
+            const hunkIdx = diffBlockCounter - 1;
+            centerHtml += `<div class="flex items-center justify-center py-0.5 min-h-[1.5rem] w-full bg-indigo-50/80 dark:bg-indigo-950/40 border-y border-indigo-200 dark:border-indigo-900/60 space-x-1">
+              <button onclick="mergeHunkToRight(${hunkIdx})" onmouseenter="highlightHunkPreview('${blockIdClass}', true)" onmouseleave="highlightHunkPreview('${blockIdClass}', false)" class="p-0.5 px-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold shadow-sm transition-all" title="Merge Left \u2192 Right">&rarr;</button>
+              <button onclick="mergeHunkToLeft(${hunkIdx})" onmouseenter="highlightHunkPreview('${blockIdClass}', true)" onmouseleave="highlightHunkPreview('${blockIdClass}', false)" class="p-0.5 px-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-bold shadow-sm transition-all" title="Merge Right \u2192 Left">&larr;</button>
+            </div>`;
+          } else if (isDiff) {
+            centerHtml += `<div class="min-h-[1.5rem] w-full bg-indigo-50/40 dark:bg-indigo-950/20"></div>`;
+          } else {
+            centerHtml += `<div class="min-h-[1.5rem] w-full"></div>`;
+          }
+        });
+
+        document.getElementById('diffLeftContent').innerHTML = leftHtml;
+        document.getElementById('diffRightContent').innerHTML = rightHtml;
+        document.getElementById('diffCenterContent').innerHTML = centerHtml;
+
+      } else {
+        // Unified Inline View
+        let unifiedHtml = '';
+        pairs.forEach((pair, idx) => {
+          const isDiff = pair.type !== 'equal';
+          let blockIdClass = '';
+          let isHunkStart = false;
+
+          if (isDiff && (idx === 0 || pairs[idx - 1].type === 'equal')) {
+            diffBlockCounter++;
+            blockIdClass = `diff-block-${diffBlockCounter}`;
+            state.diffBlocks.push(blockIdClass);
+            isHunkStart = true;
+          } else if (isDiff) {
+            blockIdClass = `diff-block-${diffBlockCounter}`;
+          }
+
+          if (isHunkStart) {
+            const hunkIdx = diffBlockCounter - 1;
+            unifiedHtml += `<div class="bg-indigo-100 dark:bg-indigo-950/80 px-3 py-1 flex items-center justify-between border-y border-indigo-200 dark:border-indigo-800 text-[11px]">
+              <span class="font-semibold text-indigo-700 dark:text-indigo-300">Diff Block #${diffBlockCounter}</span>
+              <div class="flex items-center space-x-2">
+                <button onclick="mergeHunkToRight(${hunkIdx})" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-medium shadow-sm">Merge Left &rarr; Right</button>
+                <button onclick="mergeHunkToLeft(${hunkIdx})" class="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium shadow-sm">Merge Right &larr; Left</button>
+              </div>
+            </div>`;
+          }
+
+          if (pair.type === 'equal') {
+            unifiedHtml += `<div class="flex items-center hover:bg-slate-100 dark:hover:bg-zinc-800/50 py-0.5 px-1 min-h-[1.5rem]">
+              <span class="w-10 text-right pr-2 select-none text-slate-400 dark:text-zinc-600 border-r border-slate-200 dark:border-zinc-800">${pair.leftNum}</span>
+              <span class="w-10 text-right pr-2 select-none text-slate-400 dark:text-zinc-600 border-r border-slate-200 dark:border-zinc-800">${pair.rightNum}</span>
+              <span class="px-2 text-slate-400 select-none">&nbsp;</span>
+              <pre class="whitespace-pre-wrap break-all text-slate-800 dark:text-zinc-300 font-mono">${escapeHtml(pair.leftText)}</pre>
+            </div>`;
+          } else {
+            if (pair.type === 'delete' || pair.type === 'modify') {
+              unifiedHtml += `<div class="flex items-center bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-200 py-0.5 px-1 min-h-[1.5rem] ${blockIdClass}">
+                <span class="w-10 text-right pr-2 select-none bg-red-100/70 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-r border-red-200 dark:border-red-900/50">${pair.leftNum || ''}</span>
+                <span class="w-10 text-right pr-2 select-none bg-red-100/40 dark:bg-red-950/40 text-red-400 border-r border-red-200 dark:border-red-900/50"></span>
+                <span class="px-2 text-red-500 font-bold select-none">-</span>
+                <pre class="whitespace-pre-wrap break-all font-mono">${renderSubDiff(pair.leftText, pair.rightText, 'left')}</pre>
+              </div>`;
+            }
+            if (pair.type === 'add' || pair.type === 'modify') {
+              unifiedHtml += `<div class="flex items-center bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 py-0.5 px-1 min-h-[1.5rem] ${blockIdClass}">
+                <span class="w-10 text-right pr-2 select-none bg-emerald-100/40 dark:bg-emerald-950/40 text-emerald-400 border-r border-emerald-200 dark:border-emerald-900/50"></span>
+                <span class="w-10 text-right pr-2 select-none bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-r border-emerald-200 dark:border-emerald-900/50">${pair.rightNum || ''}</span>
+                <span class="px-2 text-emerald-500 font-bold select-none">+</span>
+                <pre class="whitespace-pre-wrap break-all font-mono">${renderSubDiff(pair.leftText, pair.rightText, 'right')}</pre>
+              </div>`;
+            }
+          }
+        });
+
+        document.getElementById('diffUnifiedContent').innerHTML = unifiedHtml;
+      }
+
+      state.currentDiffIdx = -1;
+      updateJumpCounter();
+    }
+
+    // --- SYNCHRONIZED TRIPLE SCROLLING ---
+    let isSyncingScroll = false;
+    function syncDiffScroll(source) {
+      if (isSyncingScroll) return;
+      isSyncingScroll = true;
+
+      const leftScroll = document.getElementById('diffLeftScroll');
+      const rightScroll = document.getElementById('diffRightScroll');
+      const centerScroll = document.getElementById('diffCenterScroll');
+
+      if (source === 'left') {
+        rightScroll.scrollTop = leftScroll.scrollTop;
+        centerScroll.scrollTop = leftScroll.scrollTop;
+        rightScroll.scrollLeft = leftScroll.scrollLeft;
+      } else if (source === 'right') {
+        leftScroll.scrollTop = rightScroll.scrollTop;
+        centerScroll.scrollTop = rightScroll.scrollTop;
+        leftScroll.scrollLeft = rightScroll.scrollLeft;
+      } else if (source === 'center') {
+        leftScroll.scrollTop = centerScroll.scrollTop;
+        rightScroll.scrollTop = centerScroll.scrollTop;
+      }
+
+      requestAnimationFrame(() => {
+        isSyncingScroll = false;
+      });
+    }
+
+    // --- METRICS & SIMILARITY BAR CALCULATIONS ---
+    function calculateStats(rawDiff, totalA, totalB) {
+      let adds = 0;
+      let dels = 0;
+      let equals = 0;
+
+      rawDiff.forEach(item => {
+        if (item.type === 'add') adds++;
+        else if (item.type === 'delete') dels++;
+        else if (item.type === 'equal') equals++;
+      });
+
+      document.getElementById('statAdditions').innerText = `+${adds} addition${adds === 1 ? '' : 's'}`;
+      document.getElementById('statDeletions').innerText = `-${dels} deletion${dels === 1 ? '' : 's'}`;
+      document.getElementById('statUnresolved').innerText = `${state.hunks.length} diff block${state.hunks.length === 1 ? '' : 's'}`;
+      document.getElementById('statUnchanged').innerText = `${equals} unchanged line${equals === 1 ? '' : 's'}`;
+
+      const totalLines = equals + adds + dels;
+      const similarity = totalLines > 0 ? Math.round((equals / (equals + (adds + dels) / 2)) * 100) : 100;
+
+      document.getElementById('similarityBar').style.width = `${similarity}%`;
+      document.getElementById('statSimilarity').innerText = `${similarity}%`;
+    }
+
+    // --- JUMP BETWEEN DIFFERENCE BLOCKS ---
+    function jumpDiff(direction) {
+      if (state.diffBlocks.length === 0) {
+        showToast("No differences found!");
+        return;
+      }
+
+      state.currentDiffIdx += direction;
+      if (state.currentDiffIdx >= state.diffBlocks.length) state.currentDiffIdx = 0;
+      if (state.currentDiffIdx < 0) state.currentDiffIdx = state.diffBlocks.length - 1;
+
+      const targetClass = state.diffBlocks[state.currentDiffIdx];
+      const elements = document.getElementsByClassName(targetClass);
+
+      if (elements.length > 0) {
+        elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        Array.from(elements).forEach(el => {
+          el.classList.add('diff-highlight-target');
+          setTimeout(() => el.classList.remove('diff-highlight-target'), 2000);
+        });
+      }
+
+      updateJumpCounter();
+    }
+
+    function updateJumpCounter() {
+      const counter = document.getElementById('diffJumpCounter');
+      const total = state.diffBlocks.length;
+      const current = state.currentDiffIdx >= 0 ? state.currentDiffIdx + 1 : 0;
+      counter.innerText = `${current} / ${total}`;
+    }
+
+    // --- FILE DOWNLOADS & EXPORT PATCH ---
+    function downloadFile(side) {
+      const text = side === 'left' ? document.getElementById('leftText').value : document.getElementById('rightText').value;
+      const filename = side === 'left' ? 'original_file.txt' : 'changed_file.txt';
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast(`Downloaded ${filename}`);
+    }
+
+    function copyDiffPatch() {
+      if (!state.lastComputedDiff) {
+        showToast("No diff available to export!");
+        return;
+      }
+
+      let patchText = `--- Original\n+++ Changed\n@@ Diff Patch @@\n`;
+      state.lastComputedDiff.forEach(p => {
+        if (p.type === 'equal') patchText += ` ${p.leftText}\n`;
+        else if (p.type === 'delete') patchText += `-${p.leftText}\n`;
+        else if (p.type === 'add') patchText += `+${p.rightText}\n`;
+        else if (p.type === 'modify') {
+          patchText += `-${p.leftText}\n+${p.rightText}\n`;
+        }
+      });
+
+      const textarea = document.createElement('textarea');
+      textarea.value = patchText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      showToast("Copied Git patch to clipboard!");
+    }
+
+    // --- TOAST NOTIFICATION HELPER ---
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.innerText = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
